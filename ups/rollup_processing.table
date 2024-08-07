@@ -4,6 +4,11 @@
 #   the "sconsUtils" package.
 setupRequired(sconsUtils)
 
+setupRequired(ap_pipe)
+setupRequired(daf_butler)
+setupRequired(resources)
+setupRequired(pipe_base)
+
 # The following is boilerplate for all packages.
 # See https://dmtn-001.lsst.io for details on LSST_LIBRARY_PATH.
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
