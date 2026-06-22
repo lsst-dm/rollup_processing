@@ -4,6 +4,7 @@ This configuration only affects single-package Sphinx documentation builds.
 For more information, see:
 https://developer.lsst.io/stack/building-single-package-docs.html
 """
+# ruff: noqa: F403, F405
 
 from documenteer.conf.pipelinespkg import *
 
