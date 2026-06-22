@@ -9,4 +9,11 @@ RUN <<EOT
 EOT
 RUN groupadd -g 1126 -o gu \
     && useradd -u 48045 -g 1126 rubinppb
+
+WORKDIR /rollup
+COPY python/lsst/rollup/processing/scripts scripts/
+RUN chown -R rubinppb:gu /rollup
+
 USER rubinppb
+RUN source /opt/lsst/software/stack/loadLSST.bash \
+    && setup lsst_distrib
