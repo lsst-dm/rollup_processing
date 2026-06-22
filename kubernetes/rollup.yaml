@@ -1,88 +1,82 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: CronJob
 metadata:
   name: rollup-lsstcam
   namespace: rollup
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: rollup-lsstcam
-  template:
-    metadata:
-      labels:
-        app: rollup-lsstcam
+  timeZone: 'US/Pacific'
+  schedule: "26 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
     spec:
-      initContainers:
-      - name: fix-secret-permissions
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            cp -RL /tmp/secrets-raw/* /opt/lsst/butler/
-            chown 48045:1126 /opt/lsst/butler/*
-            chmod 0400 /opt/lsst/butler/*
-        volumeMounts:
-        - name: butler-secrets-raw
-          mountPath: /tmp/secrets-raw
-          readOnly: true
-        - name: butler-secrets
-          mountPath: /opt/lsst/butler
-          readOnly: false
-      containers:
-      - name: sandbox
-        image: ghcr.io/lsst-dm/rollup-processing:w_2026_24
-        imagePullPolicy: Always
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            set -e
-            source /opt/lsst/software/stack/loadLSST.bash
-            setup lsst_distrib
-            echo "Querying Butler"
-            python -c "
-            from lsst.daf.butler import Butler
-            butler = Butler('embargo')
-            collections = butler.collections.query('LSSTCam/runs/prompt-*')
-            print(f'Found {len(collections)} collections')
-            refs = butler.query_datasets('preliminary_visit_image', collections=collections[-1], limit=1)
-            exp = butler.get(refs[0])
-            print(exp.getInfo().getVisitInfo())
-            "
-            echo "Smoke test passed"
-            sleep 600
-        env:
-        - name: S3_ENDPOINT_URL
-          value: "https://s3dfrgw.slac.stanford.edu"
-        - name: DAF_BUTLER_REPOSITORY_INDEX
-          value: "s3://embargo@rubin-summit-users/data-repos.yaml"
-        - name: LSST_RESOURCES_S3_PROFILE_embargo
-          value: "https://sdfembs3.sdf.slac.stanford.edu"
-        - name: AWS_SHARED_CREDENTIALS_FILE
-          value: /opt/lsst/butler/aws-credentials.ini
-        - name: LSST_DB_AUTH
-          value: /opt/lsst/butler/db-auth.yaml
-        volumeMounts:
-        - name: sdf-data-rubin
-          mountPath: /sdf/data/rubin
-        - name: butler-secrets
-          mountPath: /opt/lsst/butler
-          readOnly: true
-      volumes:
-      - name: sdf-data-rubin
-        persistentVolumeClaim:
-          claimName: sdf-data-rubin
-      - name: butler-secrets
-        emptyDir: {}
-      - name: butler-secrets-raw
-        secret:
-          secretName: butler-secrets
-          items:
-          - key: datastore
-            path: aws-credentials.ini
-          - key: dbauth
-            path: db-auth.yaml
-          defaultMode: 0400
+      template:
+        metadata:
+          labels:
+            app: rollup-lsstcam
+        spec:
+          initContainers:
+          - name: fix-secret-permissions
+            image: busybox
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh"]
+            args:
+              - -c
+              - |
+                cp -RL /tmp/secrets-raw/* /opt/lsst/butler/
+                chown 48045:1126 /opt/lsst/butler/*
+                chmod 0400 /opt/lsst/butler/*
+            volumeMounts:
+            - name: butler-secrets-raw
+              mountPath: /tmp/secrets-raw
+              readOnly: true
+            - name: butler-secrets
+              mountPath: /opt/lsst/butler
+              readOnly: false
+          containers:
+          - name: write-visit-geo
+            image: ghcr.io/lsst-dm/rollup-processing:w_2026_24
+            imagePullPolicy: Always
+            command: ["/bin/sh"]
+            args:
+              - -c
+              - |
+                echo "Starting..."
+                source /opt/lsst/software/stack/loadLSST.bash
+                setup lsst_distrib
+                echo "Stack loaded"
+                START_TIME=$(date +%s)
+                echo "Job started at $(date)"
+                python scripts/write_visit_geo.py 1.2
+                END_TIME=$(date +%s)
+                DURATION=$((END_TIME - START_TIME))
+                echo "Job completed at $(date)"
+                echo "Total execution time: ${DURATION} seconds ($(($DURATION / 60)) minutes)"
+                date
+            env:
+            - name: S3_ENDPOINT_URL
+              value: "https://s3dfrgw.slac.stanford.edu"
+            - name: DAF_BUTLER_REPOSITORY_INDEX
+              value: "s3://embargo@rubin-summit-users/data-repos.yaml"
+            - name: LSST_RESOURCES_S3_PROFILE_embargo
+              value: "https://sdfembs3.sdf.slac.stanford.edu"
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: /opt/lsst/butler/aws-credentials.ini
+            - name: LSST_DB_AUTH
+              value: /opt/lsst/butler/db-auth.yaml
+            volumeMounts:
+            - name: butler-secrets
+              mountPath: /opt/lsst/butler
+              readOnly: true
+          volumes:
+          - name: butler-secrets
+            emptyDir: {}
+          - name: butler-secrets-raw
+            secret:
+              secretName: butler-secrets
+              items:
+              - key: datastore
+                path: aws-credentials.ini
+              - key: dbauth
+                path: db-auth.yaml
+              defaultMode: 0400
+          restartPolicy: OnFailure
