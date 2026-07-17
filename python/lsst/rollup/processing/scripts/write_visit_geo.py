@@ -185,8 +185,9 @@ if __name__ == "__main__":
         output_collection = f"u/hchiang2/visit_geom/{day_obs}"
 
         init_run = output_collection + "/init"
-        butler.collections.register(init_run, CollectionType.RUN)
-        butler.collections.prepend_chain(output_collection, init_run)
+        init_run_is_new = butler.collections.register(init_run, CollectionType.RUN)
+        if init_run_is_new:
+            butler.collections.prepend_chain(output_collection, init_run)
         _run_init("embargo", day_obs, init_run, all_exp_ids[0])
 
         output_run = output_collection + "/" + datetime.now().strftime("%Y%m%d%H%M%S%f")
