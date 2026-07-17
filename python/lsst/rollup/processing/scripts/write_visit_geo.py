@@ -142,11 +142,8 @@ def run_all_visits(butler_repo, exp_ids, output_run, n_processes=4):
 BLOCKS = [
     "BLOCK-365",
     "BLOCK-407",
-    "BLOCK-408",
-    "BLOCK-416",
-    "BLOCK-417",
-    "BLOCK-419",
-    "BLOCK-421",
+    "BLOCK-430",
+    "BLOCK-432",
     "BLOCK-T698",
     "BLOCK-T703",
     "BLOCK-T704",
